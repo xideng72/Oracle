@@ -395,18 +395,18 @@ def main():
     if args.cmd == "list":
         list_instances(compute, args.compartment or config["tenancy"])
         return 0
-
-    env = discover(config, compute, network, identity, args)
-
-    if args.cmd == "snatch":
-        return snatch(compute, env, interval=args.interval, max_tries=args.tries,
-                      display_name=args.name, ocpus=args.ocpus, memory_gb=args.memory)
+    if args.cmd == "setup-api-user":
+        return setup_api_user(identity, config, args)
     if args.cmd in ("start", "stop", "softreset"):
         return instance_action(compute, args.instance_id, args.cmd)
     if args.cmd == "terminate":
         return terminate(compute, args.instance_id)
-    if args.cmd == "setup-api-user":
-        return setup_api_user(identity, config, args)
+
+    # 只有抢机需要自动识别环境参数
+    env = discover(config, compute, network, identity, args)
+    if args.cmd == "snatch":
+        return snatch(compute, env, interval=args.interval, max_tries=args.tries,
+                      display_name=args.name, ocpus=args.ocpus, memory_gb=args.memory)
     return 0
 
 
