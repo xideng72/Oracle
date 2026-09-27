@@ -12,6 +12,7 @@
 | `python oci_manager.py stop <实例OCID>` | 关机 |
 | `python oci_manager.py softreset <实例OCID>` | 软重启 |
 | `python oci_manager.py terminate <实例OCID>` | 删除实例（需输入 YES 二次确认） |
+| `python oci_manager.py setup-api-user` | 创建受限 API 用户/组/策略；已存在则询问是否删除重建 |
 
 抢机可选参数：`--name 实例名` `--ocpus 4` `--memory 24` `--interval 120` `--tries 0`
 （`--interval` 是轮询间隔秒数，建议不小于 60；`--tries 0` 表示无限尝试）
@@ -25,17 +26,35 @@
 2. 生成 API 配置（二选一）：
    - 命令行：`oci setup config` 按提示走完
    - 控制台：身份 → 用户 → 你的用户 → API 密钥 → 添加，把生成的配置文件放到 `~/.oci/config`
-3. 打开 `oci_manager.py`，把文件顶部的 5 个常量换成你自己的：
-   - `COMPARTMENT_ID`（租户 OCID）
-   - `AVAILABILITY_DOMAIN`（可用域，如 `xxxx:EU-AMSTERDAM-1-AD-1`）
-   - `SUBNET_ID`（子网 OCID）
-   - `IMAGE_ID`（ARM 镜像 OCID，控制台创建实例页面能查到）
-   - `SSH_PUBLIC_KEY`（你的 SSH 公钥）
+3. 参数全自动识别：租户 / 可用域 / 子网 / 镜像 / SSH 公钥都不用手填，
+   脚本会自动查（可用 `--compartment` `--ad` `--subnet` `--image` `--ssh-key` 手动覆盖）。
+   唯一前提：本机 `~/.ssh` 下有公钥（没有就先跑 `ssh-keygen` 生成一个），
+   且租户里已经建好 VCN 和子网。
 4. 跑起来：
    ```
    python oci_manager.py list
    python oci_manager.py snatch --interval 120
    ```
+
+## setup-api-user：创建受限 API 用户
+
+```
+python oci_manager.py setup-api-user
+```
+
+流程：
+1. 组 `Group_for_Api_used` / 策略 `Policy_for_Api_used`：存在则复用，不存在则创建（永不删除）
+2. 只扫描目标 API 用户（如 `User_for_Api_used`）：
+   - 不存在 → 直接新建并加入组
+   - 已存在 → 询问：`y` 删除它并用同名重建 / `n` 保留它，自动递增新建 `User_for_Api_used01`（01 被占就 02，以此类推）
+3. 注册时的默认账户（xxx@gmail.com 那个）永远不会被扫描和删除，碰到直接退出
+
+创建完成后只打印用户 OCID；API 密钥本脚本不处理，请自行在控制台生成。
+
+- 这个命令需要**有 IAM 管理权限**的配置来运行（比如租户管理员）
+- 邮箱一般不需要：脚本先不带邮箱创建，只有 Oracle 明确报错缺邮箱时才现场问你；
+  也可以用 `--user-email` 预先指定
+- 可选参数：`--group-name` `--policy-name` `--user-name` `--type new/old` `--yes`（跳过询问，相当于每次都选 y）
 
 ## 安全提醒
 
