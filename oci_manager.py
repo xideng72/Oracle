@@ -29,13 +29,33 @@ from oci.exceptions import ServiceError
 
 
 def get_clients(profile="DEFAULT"):
-    config = oci.config.from_file(profile_name=profile)
-    oci.config.validate_config(config)
+    # 优先用 ~/.oci/config；没有则尝试 Cloud Shell 的 delegation token
+    try:
+        config = oci.config.from_file(profile_name=profile)
+        oci.config.validate_config(config)
+        return (
+            config,
+            oci.core.ComputeClient(config),
+            oci.core.VirtualNetworkClient(config),
+            oci.identity.IdentityClient(config),
+        )
+    except Exception:
+        pass
+    try:
+        from oci.auth.signers import InstancePrincipalsDelegationTokenSigner
+        signer = InstancePrincipalsDelegationTokenSigner()
+        config = {"region": signer.region, "tenancy": signer.tenancy_id}
+    except Exception:
+        raise RuntimeError(
+            "找不到可用的认证方式：~/.oci/config 不存在，"
+            "Cloud Shell delegation token 也不可用。请先运行 `oci setup config` 配置 API 密钥。"
+        )
+    print("使用 Cloud Shell delegation token 认证")
     return (
         config,
-        oci.core.ComputeClient(config),
-        oci.core.VirtualNetworkClient(config),
-        oci.identity.IdentityClient(config),
+        oci.core.ComputeClient(config, signer=signer),
+        oci.core.VirtualNetworkClient(config, signer=signer),
+        oci.identity.IdentityClient(config, signer=signer),
     )
 
 
@@ -252,9 +272,13 @@ def setup_api_user(identity, config, args):
     # 只扫描目标 API 用户；默认账户（当前配置在用的那个）碰都不碰
     users = identity.list_users(tenancy_id, name=base_user_name).data
     user = users[0] if users else None
-    if user and user.id == config["user"]:
+    current_user_id = config.get("user")
+    if user and current_user_id and user.id == current_user_id:
         print(f"用户 {base_user_name} 是注册时的默认账户，不能删除也不处理，本次退出。")
         return 1
+    if not current_user_id:
+        print("注意：Cloud Shell 认证模式下无法自动识别默认账户，")
+        print("请确保 --user-name 不是你自己的控制台登录账户名。")
 
     target_name = base_user_name
     if user:

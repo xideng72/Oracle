@@ -23,14 +23,20 @@
    ```
    pip install oci
    ```
-2. 生成 API 配置（二选一）：
-   - 命令行：`oci setup config` 按提示走完
-   - 控制台：身份 → 用户 → 你的用户 → API 密钥 → 添加，把生成的配置文件放到 `~/.oci/config`
+2. 认证（二选一，脚本会自动适配）：
+   - 本机：`oci setup config` 生成 `~/.oci/config`
+     （跑 `setup-api-user` 的配置需有 IAM 管理权限）
+   - Cloud Shell：无需配置文件，脚本自动用 delegation token 认证，
+     粘贴一键命令即可全自动执行
 3. 参数全自动识别：租户 / 可用域 / 子网 / 镜像 / SSH 公钥都不用手填，
    脚本会自动查（可用 `--compartment` `--ad` `--subnet` `--image` `--ssh-key` 手动覆盖）。
    唯一前提：本机 `~/.ssh` 下有公钥（没有就先跑 `ssh-keygen` 生成一个），
    且租户里已经建好 VCN 和子网。
-4. 跑起来：
+4. 一键命令（Cloud Shell 里粘贴执行，注意私库需先解决下载鉴权）：
+   ```
+   wget -N "https://raw.githubusercontent.com/xideng72/Oracle/main/oci_manager.py" && pip3 install -q --user oci && python3 oci_manager.py setup-api-user
+   ```
+   或分步跑：
    ```
    python oci_manager.py list
    python oci_manager.py snatch --interval 120
